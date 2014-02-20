@@ -1,4 +1,4 @@
-all: client server
+all: client
 
 client: fill_headers.o client_get.o client_put.o
 	gcc -o client client.c fill_headers.o client_get.o client_put.o
@@ -12,11 +12,5 @@ client_get.o: client_get.c
 client_put.o: client_put.c
 	gcc -c client_put.c
 
-server: server.c
-	gcc -o server server.c
-
 clean:
-	rm -f server client *.o
-
-strip:
-	strip server client
+	rm -f client *.o

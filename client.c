@@ -1,3 +1,10 @@
+/*
+	This file takes in command line arguments,
+	parses available options and sets destination address,
+	mode of operation etc, opens/creates required file
+	in appropriate mode
+*/
+	
 #include <stdio.h>		
 #include <string.h>		
 #include <stdlib.h> 	
@@ -5,71 +12,88 @@
 #include <sys/socket.h>	
 #include <netdb.h>		
 #include <netinet/in.h>
-#include <unistd.h>
-
 #include "fill_headers.h"
 #include "client_get.h"
 #include "client_put.h"
-#include "tftp.h"
+#include "opcodes.h"
 
 int port = 69;
 
 int main (int argc, char **argv)
 {
-	int sock, server_len, len, opt;
-	char opcode, filename[196], mode[12] = "octet";
+	int sock, len2, len;
+	char opcode, filename[196], mode[12] = "octet"; // default is octet
 	struct hostent *host;
 	struct sockaddr_in server;
-	char* host_ip = "127.0.0.1";
+	char* host_addr = "127.0.0.1";
 	FILE *fp;
+
 	if (argc < 2)
 	{
 		printf("invalid format of command\n");
-		printf("Command format: ./client -h [host_ip] -P [port] -g|-p [filename] [-n] \n");
+		printf("Command format: ./client -h [host_addr] -P [port] -g|-p [filename] [-n] \n");
 		return 0;
 	}
 
-	while ((opt = getopt(argc, argv, "h:P:p:g:n")) != -1)
+	argv++;
+	argc--;
+
+	if (strcmp(argv[0], "-h") == 0)
 	{
-		// printf("inside first while \n");
-		switch (opt)
+		if (argc==1) 
 		{
-			case 'h':
-				host_ip = optarg;
-				// printf("Client: server ip is %s\n", host_ip);
-				break;			
-			case 'P':		// get port number
-				port = atoi (optarg);
-				// printf ("Client: The port number is: %d\n", port);
-				break;
-			case 'p':
-//				printf("need to put a file in server\n\n");
-				strncpy (filename, optarg, sizeof (filename) - 1);
-				opcode = WRQ;
-				break;
-
-			case 'g':
-				strncpy (filename, optarg, sizeof (filename) - 1);
-				opcode = RRQ;
-				break;
-
-			case 'o':
-				strncpy (mode, "octet", sizeof (mode) - 1);
-				printf ("Client: The mode is set to octet\n");
-				break;
-			case 'n':
-				strncpy (mode, "netascii", sizeof (mode) - 1);
-				printf ("Client: The mode is set to netascii\n");
-				break;
-			default:
-				// printf("invalid format of command\n");
-				printf("Command format: ./client -h [host_ip] -P [port] -g|-p [filename] [-n] \n");
-				return (0);
-				break;
+			printf("invalid format of command\n");
+			printf("Command format: ./client -h [host_addr] -P [port] -g|-p [filename] [-n] \n");
+			return 0;
 		}
+		host_addr = argv[1];
+		argv+=2;
+		argc-=2;
 	}
-	printf("Client: server ip address: %s and port: %d \n", host_ip, port);
-	if (!(host = gethostbyname (host_ip)))
+	if (strcmp(argv[0], "-P")==0){
+		if (argc==1) 
+		{
+			printf("invalid format of command\n");
+			printf("Command format: ./client -h [host_addr] -P [port] -g|-p [filename] [-n] \n");
+			return 0;
+		}
+		port = atoi(argv[1]);
+
+		argv+=2;
+		argc-=2;
+	}
+	if (strcmp(argv[0], "-g")==0){
+		if (argc==1) 
+		{
+			printf("invalid format of command\n");
+			printf("Command format: ./client -h [host_addr] -P [port] -g|-p [filename] [-n] \n");
+			return 0;
+		}
+		strncpy (filename, argv[1], sizeof (filename) - 1);
+		opcode = RRQ;
+		argv+=2;
+		argc-=2;
+	} else if (strcmp(argv[0], "-p")==0){
+		if (argc==1) 
+		{
+			printf("invalid format of command\n");
+			printf("Command format: ./client -h [host_addr] -P [port] -g|-p [filename] [-n] \n");
+			return 0;
+		}
+		strncpy (filename, argv[1], sizeof (filename) - 1);
+		opcode = WRQ;
+		argv+=2;
+		argc-=2;
+	} else if (strcmp(argv[0], "-n")==0){
+		strncpy (mode, "netascii", sizeof (mode) - 1);
+		printf ("Client: The mode is set to netascii\n");
+	} else{
+		printf("Command format: ./client -h [host_addr] -P [port] -g|-p [filename] [-n] \n");
+		return (0);
+	}
+
+	printf("Client: server ip address: %s and port: %d \n", host_addr, port);
+	if (!(host = gethostbyname (host_addr)))
 	{
 		perror ("could not obtain host address as");
 		exit (2);
@@ -109,12 +133,11 @@ int main (int argc, char **argv)
 	server.sin_port = htons (port);	
 
 
-	server_len = sizeof(server);
-	//printf("value os BUFSIZ is %d \n", BUFSIZ);
-	memset(buf, 0, BUFSIZ);
+	len2 = sizeof(server);
+	memset(buf, 0, 512);
 	// creates RRQ packet
-	len = req_packet(opcode, filename, mode, buf);
-	if (sendto (sock, buf, len, 0, (struct sockaddr *) &server, server_len) != len)
+	len = request_packet(opcode, filename, mode, buf);
+	if (sendto (sock, buf, len, 0, (struct sockaddr *) &server, len2) != len)
 	{
 		perror("Client: sendto has returend an error");
 		exit(-1);

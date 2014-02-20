@@ -1,6 +1,4 @@
-#include <stdio.h>		/*for input and output */
-#include <string.h>		/*for string functions */
-#include "tftp.h"
+#include "opcodes.h"
 
 /*a function to create the request packet, read or write*/
 int req_packet (int opcode, char *filename, char *mode, char buf[]);
